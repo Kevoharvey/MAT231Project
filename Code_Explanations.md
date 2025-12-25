@@ -1,281 +1,95 @@
+# Explanation of Rainfall Intensity Analysis Project
+
+This document provides a detailed, cell-by-cell explanation of the code and logic used in the `Rainfall_Intensity_Project.ipynb` notebook.
 
 ---
 
-# 📘 Rainfall Data Analysis — *Line-by-Line Explanation*
-
-## ## Load Rainfall Data
-
-### **Goal:**
-
-Load the dataset, inspect it, and check for missing values + data types.
-
+## 1. Libraries and Setup (Cell 2)
 ```python
 import pandas as pd
-```
-
-Imports the **pandas** library, the MVP for all data manipulation.
-
-```python
-df_rainfall = pd.read_csv('rainfall in india 1901-2015.csv')
-```
-
-Reads the CSV file and loads it into a pandas **DataFrame** named `df_rainfall`.
-
-```python
-print("First 5 rows of the DataFrame:")
-print(df_rainfall.head())
-```
-
-Shows the first 5 rows so you can instantly see if the dataset loaded correctly.
-
-```python
-print("\nMissing values in each column:")
-print(df_rainfall.isnull().sum())
-```
-
-Checks every column for missing values by counting all `NaN` entries.
-
-```python
-print("\nData types of each column:")
-df_rainfall.info()
-```
-
-Displays **data types** (int, float, object…), memory usage, and non-null counts.
-
----
-
-## ## Data Exploration and Preprocessing
-
-### **Goal:**
-
-Clean missing values, get descriptive stats, and plot a histogram.
-
-```python
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from scipy import stats
+
+sns.set(style="whitegrid")
 ```
-
-Imports **matplotlib** for plotting and **seaborn** for prettier plots.
-
-```python
-df_rainfall_cleaned = df_rainfall.dropna(subset=['ANNUAL'])
-```
-
-Removes any row where the `ANNUAL` rainfall value is missing.
-
-```python
-print(f"\nNumber of rows before dropping NaNs: {len(df_rainfall)}")
-print(f"Number of rows after dropping NaNs in 'ANNUAL': {len(df_rainfall_cleaned)}")
-```
-
-Prints the number of rows before/after cleaning so you see exactly how much was removed.
-
-```python
-print("\nDescriptive statistics for 'ANNUAL' rainfall:")
-print(df_rainfall_cleaned['ANNUAL'].describe())
-```
-
-Displays summary stats such as mean, median, std, quartiles, min, max.
-
-```python
-plt.figure(figsize=(10, 6))
-sns.histplot(df_rainfall_cleaned['ANNUAL'], bins=50, kde=True)
-```
-
-Creates a histogram of annual rainfall + a KDE (smooth density) curve.
-
-```python
-plt.title('Distribution of Annual Rainfall (1901-2015)')
-plt.xlabel('Annual Rainfall (mm)')
-plt.ylabel('Frequency')
-plt.grid(True, linestyle='--', alpha=0.7)
-plt.show()
-```
-
-Adds labels, a grid, and displays the plot.
+- **`pandas`**: Used for data manipulation and analysis (loading the CSV, calculating statistics).
+- **`numpy`**: Provides support for large, multi-dimensional arrays and matrices, along with mathematical functions.
+- **`matplotlib.pyplot` & `seaborn`**: Used for creating the visualizations (histograms, line plots).
+- **`scipy.stats`**: Contains a large number of probability distributions and statistical functions (fitting distributions, KS test).
+- **`sns.set(style="whitegrid")`**: Configures the aesthetic style of the plots to be cleaner and more readable.
 
 ---
 
-## ## Demonstrating the Law of Large Numbers (LLN)
-
-### **Goal:**
-
-Simulate coin flips to show that sample averages converge to the theoretical probability.
-
+## 2. Data Loading and Preprocessing (Cell 3)
 ```python
-np.random.seed(42)
+df = pd.read_csv('/Users/kevinharvey/Desktop/Projects/Statistics Project/rainfall in india 1901-2015.csv')
+df = df.dropna(subset=['ANNUAL'])
+df[['ANNUAL']].describe()
 ```
-
-Sets a seed so results are **repeatable**.
-
-```python
-num_tosses = 1000
-```
-
-Defines how many coin flips you simulate.
-
-```python
-results = np.random.binomial(1, 0.5, num_tosses)
-```
-
-Generates 1000 coin flips where:
-
-* `1` = heads
-* `0` = tails
-
-```python
-cumulative_heads = np.cumsum(results)
-```
-
-Keeps a running total of heads.
-
-```python
-cumulative_proportion = cumulative_heads / np.arange(1, num_tosses + 1)
-```
-
-Calculates the proportion of heads after each flip.
+- **`read_csv`**: Loads the dataset into a DataFrame called `df`.
+- **`dropna(subset=['ANNUAL'])`**: This is a critical step. If the `ANNUAL` rainfall value is missing (`NaN`), it would break the statistical calculations. We remove these rows to ensure data integrity.
+- **`describe()`**: Generates descriptive statistics like mean, standard deviation, min, and max for the annual rainfall.
 
 ---
 
-### Plotting LLN
-
+## 3. Rainfall Intensity Probabilities (Cell 4)
+### Intensity Categorization
 ```python
-plt.figure(figsize=(12, 7))
-sns.lineplot(x=np.arange(1, num_tosses + 1), y=cumulative_proportion, color='blue', label='Cumulative Proportion of Heads')
+quantiles = df['ANNUAL'].quantile([0.2, 0.4, 0.6, 0.8])
 ```
+Rainfall "intensity" is defined here using **quantiles**. We divide the data into 5 equal parts:
+- **0.2 (20th percentile)**: Threshold for 'Very Low' vs 'Low'.
+- **0.8 (80th percentile)**: Threshold for 'High' vs 'Extreme'.
 
-Plots the cumulative proportion of heads over time.
-
+### Empirical Probability
 ```python
-plt.axhline(0.5, color='red', linestyle='--', label='Theoretical Probability (0.5)')
+intensity_probs = intensity_counts / len(df)
 ```
+The **Empirical Probability** is the simplest form of prediction. It looks at historical frequencies.
+- If "Extreme" rainfall happened in 20% of the recorded years, we predict a **0.2** probability of it happening again, assuming history repeats itself.
 
-Draws the horizontal line showing the true probability.
-
+### Threshold Exceedance
 ```python
-plt.xscale('log')
+prob_exceed = (df['ANNUAL'] > 2000).mean()
 ```
-
-Uses a log scale to show early randomness vs later convergence.
-
-```python
-plt.title('Demonstration of the Law of Large Numbers (Coin Toss)')
-plt.xlabel('Number of Coin Tosses')
-plt.ylabel('Cumulative Proportion of Heads')
-plt.grid(True, linestyle='--', alpha=0.7)
-plt.legend()
-plt.show()
-```
-
-Labels & displays the convergence plot.
+This calculates the probability that in any given year, the total rainfall will be greater than 2000mm. It's the total number of years matching the criteria divided by the total number of years.
 
 ---
 
-## ## Fitting a Normal Distribution
-
+## 4. Comparison with Theoretical Distributions (Cell 5)
+### Fitting the Normal Distribution
 ```python
-from scipy.stats import norm
+mu, std = stats.norm.fit(annual_data)
 ```
+A **Normal Distribution** (Gaussian) is often the starting point for statistics.
+- **`mu`**: The mean (center) of the curve.
+- **`std`**: The spread (standard deviation).
+However, rainfall data is often **skewed** (heavy on one side), so the Normal distribution might not be the best fit.
 
-Imports the Normal distribution functions.
-
-```python
-rainfall_data = df_rainfall_cleaned['ANNUAL'].dropna().values
-```
-
-Extracts rainfall values into a NumPy array.
-
-```python
-mu_norm, std_norm = norm.fit(rainfall_data)
-```
-
-Estimates:
-
-* mean (μ)
-* standard deviation (σ)
-
-```python
-print(f"\nNormal Distribution Parameters: mean = {mu_norm:.2f}, std = {std_norm:.2f}")
-```
-
-Prints μ and σ.
+### Visualization
+The code plots the **Empirical Density** (the histogram of actual data) and overlays the **Probability Density Function (PDF)** of the Normal distribution. If the red line matches the blue bars, the model is accurate.
 
 ---
 
-## ## Overlay Theoretical PDFs with Empirical Distribution
+## 5. Law of Large Numbers (LLN) Validation (Cell 6)
+### The Concept
+The Law of Large Numbers (Weak LLN) states that the average of the results obtained from a large number of trials should be close to the expected value (the population mean).
 
-### **Goal:**
-
-Plot fitted distribution curves on top of the real data histogram.
-
+### Implementation
 ```python
-x = np.linspace(min(rainfall_data), max(rainfall_data), 1000)
+for n in sample_sizes:
+    sample = np.random.choice(annual_data, size=n, replace=True)
+    sample_means.append(sample.mean())
 ```
-
-Creates a smooth range of x-values for plotting PDFs.
-
-```python
-pdf_norm = norm.pdf(x, mu_norm, std_norm)
-```
-
-Computes the normal distribution PDF at each x-value.
-
-```python
-plt.figure(figsize=(12, 7))
-sns.histplot(rainfall_data, bins=50, kde=True, stat='density', color='skyblue', label='Empirical Data (KDE)')
-```
-
-Same histogram as before, normalized to density.
-
-```python
-plt.plot(x, pdf_norm, color='red', linestyle='-', label=f'Normal (mu={mu_norm:.2f}, std={std_norm:.2f})')
-```
-
-Overlays the Normal distribution curve.
-
-```python
-plt.legend()
-plt.title('Comparison of Empirical Rainfall Distribution with Fitted Theoretical Distributions')
-plt.xlabel('Annual Rainfall (mm)')
-plt.ylabel('Density')
-plt.grid(True, linestyle='--', alpha=0.7)
-plt.xlim(min(rainfall_data) - 50, max(rainfall_data) + 50)
-plt.show()
-```
-
-Final styling + display.
+1. We calculate the **Population Mean** (the average of all 4115 records).
+2. we take a tiny sample (e.g., 1 year), then a larger one (10 years), then 100, up to 2000.
+3. We plot the "running average". 
+4. **Observation**: At small sample sizes, the mean fluctuates wildly. As $n$ grows, the blue line flattens and merges with the red line (the true mean). This visually proves the LLN.
 
 ---
 
-## ## Kolmogorov–Smirnov Goodness-of-Fit Test
-
-### **Goal:**
-
-Measure how well each theoretical distribution matches the actual data.
-
-```python
-from scipy.stats import kstest
-```
-
-Imports the KS test.
-
-```python
-rainfall_data_sorted = np.sort(rainfall_data)
-```
-
-Sorts data (not required, but doesn't hurt).
-
-```python
-ks_stat_norm, p_value_norm = kstest(rainfall_data_sorted, lambda x: norm.cdf(x, loc=mu_norm, scale=std_norm))
-```
-
-Runs KS test comparing:
-
-* empirical CDF
-* fitted Normal CDF
-
-```python
-print(f"Normal Distribution KS Test: Statistic = {ks_stat_norm:.4f}, p-value = {p_value_norm:.4f}")
-```
-
-Prints the KS statistic and p-value.
+## Summary of Results
+- **Rainfall Prediction**: We use the historical distribution to assign probabilities to future intensity levels.
+- **Validation**: We use the LLN to prove that our data is stable enough that a large enough sample will accurately represent the true climate average.
